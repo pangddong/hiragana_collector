@@ -1,0 +1,4 @@
+*_hangul_data/
+__pycache__/
+*.exe
+*.ico
