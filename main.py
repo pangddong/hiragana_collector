@@ -24,6 +24,8 @@ data_index = 0 # 데이터 종류 현재 위치
 write_index = 1 # 데이터 별 현재 반복 횟수
 last_x, last_y = 0, 0 # 캔버스 그릴때 이전 좌표
 username = None
+undo_stack = []
+current_storke = []
 
 def update_write_index(): # 각 데이터 반복마다 값 업데이트
     global write_index
@@ -54,15 +56,29 @@ def draw_canvas(event):
     if last_x == 0:
         last_x, last_y = event.x, event.y
         return
-    canvas.create_line(last_x, last_y, event.x, event.y, fill="black", width=12, capstyle=tk.ROUND, smooth=tk.TRUE)
+    line_id = canvas.create_line(last_x, last_y, event.x, event.y, fill="black", width=12, capstyle=tk.ROUND, smooth=tk.TRUE)
+    current_storke.append(line_id)
     last_x, last_y = event.x, event.y
 
 def draw_reset(event): # 초기화 안하면 이전에 놓은 위치에서 쭉 이어짐
-    global last_x, last_y
+    global last_x, last_y, current_storke, undo_stack
     last_x, last_y = 0, 0
+    if current_storke:
+        undo_stack.append(current_storke)
+        current_storke = []
 
-def canvas_clear():
+def undo(event=None):
+    global undo_stack
+    if undo_stack:
+        last_stroke = undo_stack.pop()
+    for line_id in last_stroke:
+        canvas.delete(line_id)
+
+def canvas_clear(event=None):
+    global undo_stack, current_storke
     canvas.delete("all")
+    undo_stack = []
+    current_storke = []
 
 def img_save():
     current_char = hiragana_list[data_index] # 히라가나 문자 하나 뽑아 담음
@@ -91,7 +107,13 @@ def complete():
 def start_main():
     global username
     username = simpledialog.askstring("Username", "User Name", parent=win)
+    username_error_none.pack_forget()
+    username_error_roman.pack_forget()
     if not username or not username.strip(): # "", None은 False 취급
+        username_error_none.pack()
+        return
+    if not (username.isalnum() and username.isascii()):
+        username_error_roman.pack()
         return
     show_username.set(f"UserName: {username}")
 
@@ -124,7 +146,6 @@ center_x = int((screen_width - win_width) / 2)
 center_y = int((screen_height - win_height) / 2)
 win.geometry(f"{win_width}x{win_height}+{center_x}+{center_y}")
 
-
 hiragana_char = tk.StringVar()
 total_progress_text = tk.StringVar()
 write_progress_text = tk.StringVar()
@@ -141,6 +162,8 @@ start_title = tk.Button(button_container, text='START', command=start_main, font
 start_title.pack(pady=10)
 btn_load = tk.Button(button_container, text="LOAD", command=progress_load, font=("", 20))
 btn_load.pack(pady=10)
+username_error_none = tk.Label(start_frame, text="Enter name", font=('', 30), fg="#ff0000", bg=bg_color)
+username_error_roman = tk.Label(start_frame, text="English and numbers", font=('', 30), fg="#ff0000", bg=bg_color)
 
 # 하단: main_frame 관리
 show_username_lable = tk.Label(main_frame, textvariable=show_username, font=('', 20), bg=bg_color)
@@ -167,5 +190,9 @@ complete_button.pack()
 clear_button = tk.Button(main_frame, text='clear', command=canvas_clear)
 clear_button.pack(pady=(10, 0))
 
+win.bind("<Escape>", canvas_clear)
 win.bind("<Return>", click_complete_button)
+win.bind("<space>", click_complete_button)
+win.bind("<Control-z>", undo)
+win.bind("<Control-Z>", undo)
 win.mainloop()
